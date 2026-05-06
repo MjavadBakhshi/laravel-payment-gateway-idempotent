@@ -2,6 +2,7 @@
 
 namespace Tests\Feature\Idempotency;
 
+use Domain\Payment\Models\Payment;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
 use PHPUnit\Framework\Attributes\Test;
@@ -9,6 +10,8 @@ use Tests\TestCase;
 
 class IdempotencyTest extends TestCase
 {
+    use RefreshDatabase;
+
     /** Same idempotency key returns same response */
     #[Test]
     public function test_same_key_returns_cached_response() 
@@ -20,12 +23,7 @@ class IdempotencyTest extends TestCase
         
         $secondResponse = $this->makePaymentRequest('test-1234');
         $this->assertTrue($secondResponse->json('data.idempotent'));
-
     }
-    
-    /** Different keys create different payments */
-    #[Test]
-    public function test_different_keys_create_different_payments() {}
     
     /** Missing idempotency key returns error */
     #[Test]
@@ -42,7 +40,6 @@ class IdempotencyTest extends TestCase
         $response = $this->makePaymentRequest('test-1234');
         $response->assertStatus(201);
         $this->assertFalse($response->json('data.idempotent'));
-
         for($i=1; $i < 4; $i++)
         {
             $identicalResponse = $this->makePaymentRequest('test-1234');
@@ -74,12 +71,12 @@ class IdempotencyTest extends TestCase
         $response = $this->makePaymentRequest('test-1234');
         $response->assertStatus(201);
         $this->assertFalse($response->json('data.idempotent'));
-
-        $this->travel(25)->hours();
         
+        $this->travel(25)->hours();
+    
         $secondResponse = $this->makePaymentRequest('test-1234');
-        $this->assertFalse($response->json('data.idempotent'));
-
+        $secondResponse->assertJsonPath('data.idempotent', true);
+        $secondResponse->assertJsonPath('message', 'The payment has already been processed.');
         $this->travelBack(); // Return to real time.
     }
 
