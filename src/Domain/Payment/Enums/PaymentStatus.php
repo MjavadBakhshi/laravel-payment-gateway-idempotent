@@ -9,4 +9,5 @@ enum PaymentStatus :string
     case Completed = 'Completed'; // Released to seller
     case Failed = 'Failed';   // Failed
     case Refunded = 'Refunded';   // Refunded to buyer
+    case Disputed = 'Disputed';
 }

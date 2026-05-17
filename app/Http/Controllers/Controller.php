@@ -6,6 +6,11 @@ use Domain\Shared\Exceptions\ActionException;
 
 abstract class Controller
 {
+    function isActionException($exception) :bool
+    {
+        return $exception instanceof ActionException;
+    }
+
     function successResponse(array $data = [], string $message = "", int $status = 200)
     {
         return response()->json([

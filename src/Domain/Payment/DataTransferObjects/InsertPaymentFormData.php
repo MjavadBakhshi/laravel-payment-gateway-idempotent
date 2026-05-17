@@ -7,8 +7,6 @@ use Spatie\LaravelData\Casts\EnumCast;
 use Spatie\LaravelData\Data;
 
 use Domain\Payment\Enums\Currency;
-use Domain\Payment\ValueObjects\Money;
-use Illuminate\Http\Request;
 
 class InsertPaymentFormData extends Data
 {

@@ -2,13 +2,12 @@
 
 namespace Tests\Feature\Idempotency;
 
-use Domain\Payment\Models\Payment;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
 use PHPUnit\Framework\Attributes\Test;
-use Tests\TestCase;
+use Tests\Feature\Payment\Concrns\PaymentBase;
 
-class IdempotencyTest extends TestCase
+class IdempotencyTest extends PaymentBase
 {
     use RefreshDatabase;
 
@@ -16,12 +15,13 @@ class IdempotencyTest extends TestCase
     #[Test]
     public function test_same_key_returns_cached_response() 
     {
-        $response = $this->makePaymentRequest('test-1234');
+        $this->idempotencyKey = 'test-1234';
+        $response = $this->makePayment($this->validPayload);
 
         $response->assertStatus(201);
         $this->assertFalse($response->json('data.idempotent'));
         
-        $secondResponse = $this->makePaymentRequest('test-1234');
+        $secondResponse = $this->makePayment($this->validPayload);
         $this->assertTrue($secondResponse->json('data.idempotent'));
     }
     
@@ -29,7 +29,7 @@ class IdempotencyTest extends TestCase
     #[Test]
     public function test_missing_key_returns_400_error() 
     {
-        $response = $this->postJson(route('payment.store'));
+        $response = $this->postJson(route('api.payment.store'));
         $response->assertStatus(400);
     }
     
@@ -37,12 +37,14 @@ class IdempotencyTest extends TestCase
     #[Test]
     public function test_idempotency_works_for_three_identical_requests()
     {
-        $response = $this->makePaymentRequest('test-1234');
+        $this->idempotencyKey = 'test-1234';
+
+        $response = $this->makePayment($this->validPayload);
         $response->assertStatus(201);
         $this->assertFalse($response->json('data.idempotent'));
         for($i=1; $i < 4; $i++)
         {
-            $identicalResponse = $this->makePaymentRequest('test-1234');
+            $identicalResponse = $this->makePayment($this->validPayload);
             $this->assertTrue($identicalResponse->json('data.idempotent'));
         }
     }
@@ -51,12 +53,13 @@ class IdempotencyTest extends TestCase
     #[Test]
     public function test_cached_response_matches_original_response()
     {
-        $response = $this->makePaymentRequest('test-1234');
+        $this->idempotencyKey = 'test-1234';
+        $response = $this->makePayment($this->validPayload);
         $response->assertStatus(201);
         $responseData = $response->json();
         unset($responseData['data']['idempotent']);
 
-        $cachedResponse = $this->makePaymentRequest('test-1234');
+        $cachedResponse = $this->makePayment($this->validPayload);
         $cachedResponseData = $cachedResponse->json();
         unset($cachedResponseData['data']['idempotent']);
 
@@ -68,38 +71,17 @@ class IdempotencyTest extends TestCase
     #[Test]
     public function test_idempotency_cache_expires_after_24_hours() 
     {
-        $response = $this->makePaymentRequest('test-1234');
+        $this->idempotencyKey = 'test-1234';
+        $response = $this->makePayment($this->validPayload);
         $response->assertStatus(201);
         $this->assertFalse($response->json('data.idempotent'));
         
         $this->travel(25)->hours();
     
-        $secondResponse = $this->makePaymentRequest('test-1234');
+        $secondResponse = $this->makePayment($this->validPayload);
         $secondResponse->assertJsonPath('data.idempotent', true);
         $secondResponse->assertJsonPath('message', 'The payment has already been processed.');
         $this->travelBack(); // Return to real time.
-    }
-
-
-
-
-
-    private function makePaymentRequest(string $key)
-    {
-        $response = $this->withHeaders([
-            'Idempotency-Key' => $key
-        ])
-        ->postJson(
-            route('payment.store'), 
-            [
-                'amount' => fake()->randomFloat(2, max: 2000),
-                'currency' => 'EUR',
-                'merchant_id' => 'ikea',
-                "customer_email" => "customer@example.com"
-            ]
-        );
-
-        return $response;
     }
 }
     

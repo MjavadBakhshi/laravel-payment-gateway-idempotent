@@ -2,16 +2,19 @@
 
 namespace Domain\Payment\Models;
 
-use Domain\Payment\Enums\Currency;
-use Illuminate\Database\Eloquent\Model;
+use Domain\Escrow\Models\EscrowHold;
 use Illuminate\Database\Eloquent\Casts\Attribute;
+use Illuminate\Database\Eloquent\Model;
 
-use Domain\Payment\Enums\PaymentStatus;
-use Domain\Payment\ValueObjects\Money;
-use Domain\Payment\ValueObjects\TransactionId;
+use Domain\Payment\Builders\PaymentBuilder;
+use Domain\Payment\Enums\{Currency, PaymentStatus};
+use Domain\Payment\ValueObjects\{Money, TransactionId};
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class Payment extends Model
 {
+    protected static string $builder = PaymentBuilder::class;
+
     protected $fillable = [
         'idempotency_key',
         'transaction_id',
@@ -20,6 +23,7 @@ class Payment extends Model
         'amount_in_cents',
         'currency',
         'metadata',
+        'status'
     ];
 
     protected $casts = [
@@ -29,6 +33,14 @@ class Payment extends Model
         'status' => PaymentStatus::class,
     ];
 
+    // Relations
+
+    function escrow() :HasOne
+    {
+        return $this->hasOne(EscrowHold::class);
+    }
+
+    // Getters/Setters
     function transactionId() :Attribute
     {
         return Attribute::make(
@@ -41,5 +53,12 @@ class Payment extends Model
         return Attribute::make(
             get: fn() => new Money($this->amount_in_cents, $this->currency)
         );
+    }
+
+    // helper methods
+
+    function isPending() :bool
+    {
+        return $this->status == PaymentStatus::Pending;
     }
 }

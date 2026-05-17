@@ -5,22 +5,13 @@ namespace Tests\Feature\Payment;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Foundation\Testing\WithFaker;
 use PHPUnit\Framework\Attributes\Test;
-use Tests\TestCase;
 
 use Domain\Payment\Enums\PaymentStatus;
+use Tests\Feature\Payment\Concrns\PaymentBase;
 
-class InsertPaymentTest extends TestCase
+class InsertPaymentTest extends PaymentBase
 {
     use RefreshDatabase;
-
-    private string $idempotencyKey = 'test-idempotency-key-123';
-
-    private array $validPayload = [
-        'amount' => 99.99,
-        'currency' => 'EUR',
-        'merchant_id' => 'ikea',
-        'customer_email' => 'customer@example.com'
-    ];
 
     #[Test]
     public function it_creates_a_payment_with_valid_data()
@@ -148,18 +139,5 @@ class InsertPaymentTest extends TestCase
                 ->assertJsonPath('data.payment.status', PaymentStatus::Pending->value);
     }
 
-
-    private function makePayment(array $data) 
-    {
-        $response = $this->withHeaders([
-            'Idempotency-Key' => $this->idempotencyKey,
-        ])
-        ->postJson(
-            route('payment.store'), 
-            $data
-        );
-
-        return $response;
-    }
 }
 
