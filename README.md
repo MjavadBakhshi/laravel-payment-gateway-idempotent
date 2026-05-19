@@ -41,6 +41,43 @@ sequenceDiagram
     Merchant-->>Customer: Show receipt
 ```
 
+
+## Idempotency Key – Merchant Responsibility
+
+To prevent double charges and duplicate payments, **the merchant (store) is responsible for generating and storing the idempotency key**.
+
+### How It Works
+
+1. **Merchant generates a unique key** (e.g., UUID v4) when the user clicks checkout.
+2. **Merchant stores the key** in their own database (e.g., `orders.idempotency_key`) for that transaction.
+3. **Merchant sends the key** in the `Idempotency-Key` header when calling `POST /api/payments`.
+4. **OPP platform**:
+   - On first request: processes payment, stores response (including redirect URL), and returns it.
+   - On duplicate request (same key): returns the cached response without processing again.
+5. **Merchant redirects the user** to the returned `redirect_url` to complete payment.
+
+### Example (Merchant Side – Pseudocode)
+
+```php
+// Generate and store key
+$idempotencyKey = (string) \Illuminate\Support\Str::uuid();
+$order->idempotency_key = $idempotencyKey;
+$order->save();
+
+// Call OPP API
+$response = Http::withHeaders([
+    'Idempotency-Key' => $idempotencyKey,
+])->post('https://api.opp.com/api/v1/payment', [
+    'amount' => $order->total,
+    'currency' => 'EUR',
+    'merchant_id' => 'ikea',
+    'customer_email' => $order->customer_email,
+]);
+
+// Redirect user to payment gateway
+return redirect($response->json('redirect_url'));
+```
+
 ## Key Technical Decisions
 
 | Concept | Implementation |
@@ -89,3 +126,28 @@ curl -X POST http://localhost/api/v1/payment/bank-webhook \
     "amount": 99.99,
     "bank_refrence": "34236786786"
   }'
+
+```
+
+## Escrow Auto‑Release Process
+
+After a payment is successfully confirmed and held in escrow, the funds are **automatically released** to the seller after a predefined waiting period (default: **5 days**).
+
+### Why auto‑release?
+
+- Protects sellers from indefinite holds when buyers do not confirm delivery.
+- Reduces manual intervention and speeds up settlement.
+- Provides a predictable timeline for both parties.
+
+### How it works
+
+1. When a payment status changes to `held`, an `auto_release_at` timestamp is set to **5 days in the future**.
+2. A background job (cron) runs the command frequently:
+
+```bash
+# Run with default batch size (50)
+php artisan escrow:release-expired
+
+# Run with custom batch size (e.g., 200)
+php artisan escrow:release-expired --batch-size=200
+```

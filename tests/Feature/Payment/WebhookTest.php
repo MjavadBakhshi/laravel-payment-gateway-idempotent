@@ -118,21 +118,4 @@ class WebhookTest extends PaymentBase
         $webhookResponse = $this->simulateBankWebhook($paymentData, 'failed');
         $webhookResponse->assertStatus(422);
     }
-    
-
-    
-    private function simulateBankWebhook(array $paymentData, string $bankStatus)
-    {
-        $webhookData = [
-            'transaction_id' => $paymentData['transaction_id'],
-            'status' => $bankStatus,
-            'amount' => $paymentData['amount'],
-        ];
-
-        return $this->post(route('api.payment.bank-webhook', $webhookData));
-    }
-
-
-
-
 }

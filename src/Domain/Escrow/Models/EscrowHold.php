@@ -12,8 +12,10 @@ use Domain\Payment\ValueObjects\Money;
 class EscrowHold extends Model
 {
 
-    protected $guarded = ['id'];
     public $timestamps = false;
+
+    protected $guarded = ['id'];
+    protected $with = ['payment'];  // ← Automatically eager-loads payment
 
     protected $casts = [
         'amount_in_cents' => 'integer',
@@ -35,41 +37,6 @@ class EscrowHold extends Model
     }
 
     // Getters/Setters
-
-    /**
-     * Determine if the money is currently held in escrow.
-     */
-    public function isHeld(): bool
-    {
-        return !is_null($this->held_at) 
-            && is_null($this->released_at) 
-            && is_null($this->refunded_at);
-    }
-
-    /**
-     * Determine if the money has been released to the seller.
-     */
-    public function isReleased(): bool
-    {
-        return !is_null($this->released_at);
-    }
-
-    /**
-     * Determine if the money has been refunded to the buyer.
-     */
-    public function isRefunded(): bool
-    {
-        return !is_null($this->refunded_at);
-    }
-
-    /**
-     * Determine if there is an active dispute.
-     */
-    public function isDisputed(): bool
-    {
-        return !is_null($this->disputed_at);
-    }
-
 
     function amount() :Attribute
     {
